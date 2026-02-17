@@ -11,6 +11,3 @@ spreadsheet_birthday_id = "1iaqNClSz0DLH1xu7SDpe-WmpL6-aZcC_Edp3TSAPlEM"
 worksheet_name = "Form Responses 1"
 name_column    = "Seu nome"
 date_column    = "Data de nascimento"
-
-# Telegram Bot data
-chat_id = "2046779343"
