@@ -19,7 +19,7 @@ resource "aws_iam_role_policy_attachment" "basic" {
 resource "aws_lambda_function" "this" {
   function_name = var.lambda_name
   runtime       = "python3.12"
-  handler       = "monthly_birthdays_notifier.lambda_handler"
+  handler       = "birthdays_notifier.lambda_handler"
   role          = aws_iam_role.lambda_role.arn
 
   s3_bucket = var.s3_bucket

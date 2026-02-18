@@ -4,7 +4,7 @@ s3_bucket = "casa-ahun-assets"
 
 # Lambda data for birthdays
 lambda_birthday_name    = "ahun-birthdays-notifier-lambda"
-lambda_birthday_zip_key = "casa-ahun/lambdas/ahun-send-monthly-birthdays.zip"
+lambda_birthday_zip_key = "lambdas/birthdays_notifier_lambda.zip"
 spreadsheet_birthday_id = "1iaqNClSz0DLH1xu7SDpe-WmpL6-aZcC_Edp3TSAPlEM"
 
 # Google Sheets Birthday data
