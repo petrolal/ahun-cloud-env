@@ -1,8 +1,4 @@
-variable "aws_region" {
-  type = string
-}
-
-variable "lambda_birthday_name" {
+variable "lambda_name" {
   type = string
 }
 
@@ -10,11 +6,11 @@ variable "s3_bucket" {
   type = string
 }
 
-variable "lambda_birthday_zip_key" {
+variable "s3_key" {
   type = string
 }
 
-variable "spreadsheet_birthday_id" {
+variable "spreadsheet_id" {
   type = string
 }
 

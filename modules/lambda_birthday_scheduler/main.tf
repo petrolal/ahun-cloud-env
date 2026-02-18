@@ -1,5 +1,5 @@
 resource "aws_iam_role" "lambda_role" {
-  name = "${var.lambda_birthday_name}-role"
+  name = "${var.lambda_name}-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -17,20 +17,20 @@ resource "aws_iam_role_policy_attachment" "basic" {
 }
 
 resource "aws_lambda_function" "this" {
-  function_name = var.lambda_birthday_name
+  function_name = var.lambda_name
   runtime       = "python3.12"
-  handler       = "lambda_function.lambda_handler"
-  architectures = ["arm64"]
-  memory_size   = 128
-  timeout       = 10
+  handler       = "monthly_birthdays_notifier.lambda_handler"
   role          = aws_iam_role.lambda_role.arn
 
   s3_bucket = var.s3_bucket
-  s3_key    = var.lambda_birthday_zip_key
+  s3_key    = var.s3_key
+
+  memory_size = 128
+  timeout     = 10
 
   environment {
     variables = {
-      SPREADSHEET_ID          = var.spreadsheet_birthday_id
+      SPREADSHEET_ID          = var.spreadsheet_id
       WORKSHEET_NAME          = var.worksheet_name
       NAME_COLUMN             = var.name_column
       DATE_COLUMN             = var.date_column
@@ -42,7 +42,7 @@ resource "aws_lambda_function" "this" {
 }
 
 resource "aws_cloudwatch_event_rule" "monthly" {
-  name                = "${var.lambda_birthday_name}-schedule"
+  name                = "${var.lambda_name}-schedule"
   schedule_expression = "cron(0 12 1 * ? *)"
 }
 
