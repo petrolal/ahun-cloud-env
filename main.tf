@@ -1,35 +1,37 @@
 terraform {
-  required_version = ">= 0.12"
+  required_version = ">= 1.0.0"
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "6.32.1"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
     }
   }
-
-  backend "s3" {
-    bucket = "casa-ahun-assets"
-    key    = "state/terraform.tfstate"
-    region = "us-east-1"
-  }
 }
 
-provider "aws" {
-  region = var.aws_region
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
 }
 
-module "lambda_scheduler" {
-  source = "./modules/lambda_birthday_scheduler"
+# Cloud Run Module (Hosts the container and schedules cron jobs via Cloud Scheduler)
+module "cloud_run" {
+  source                     = "./modules/cloud_run"
+  project_id                 = var.project_id
+  region                     = var.region
+  service_name               = var.service_name
+  spring_datasource_url      = var.spring_datasource_url
+  spring_datasource_username = var.spring_datasource_username
+  spring_datasource_password = var.spring_datasource_password
+  telegram_bot_token         = var.telegram_bot_token
+  telegram_chat_id           = var.telegram_chat_id
+  google_credentials         = var.google_credentials
 
-  lambda_name = var.lambda_birthday_name
-  s3_bucket   = var.s3_bucket
-  s3_key      = var.lambda_birthday_zip_key
-
-  spreadsheet_id          = var.spreadsheet_birthday_id
-  worksheet_name          = var.worksheet_name
-  name_column             = var.name_column
-  date_column             = var.date_column
-  telegram_token          = var.telegram_token
-  chat_id                 = var.chat_id
-  google_credentials_json = var.google_credentials_json
+  # Ensure APIs are fully enabled before trying to create resources inside the module
+  depends_on = [
+    google_project_service.run_api,
+    google_project_service.artifact_registry_api,
+    google_project_service.scheduler_api,
+    google_project_service.iam_api
+  ]
 }

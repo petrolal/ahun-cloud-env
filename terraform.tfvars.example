@@ -1,0 +1,23 @@
+project_id                 = "your-gcp-project-id"
+region                     = "us-central1"
+zone                       = "us-central1-a"
+service_name               = "ahun-members-service"
+spring_datasource_url      = "jdbc:postgresql://db.xxxx.supabase.co:5432/postgres"
+spring_datasource_username = "postgres.xxxx"
+spring_datasource_password = "your-supabase-db-password"
+telegram_bot_token         = "your-telegram-bot-token"
+telegram_chat_id           = "your-telegram-chat-id"
+google_credentials         = <<EOF
+{
+  "type": "service_account",
+  "project_id": "...",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "client_email": "...",
+  "client_id": "...",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "..."
+}
+EOF

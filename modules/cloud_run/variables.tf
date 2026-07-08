@@ -1,24 +1,17 @@
-variable "project_id" {
-  description = "The GCP Project ID where resources will be created"
-  type        = string
-}
-
-variable "region" {
-  description = "The region for the resources (must be us-central1, us-east1, or us-west1 for free tier)"
-  type        = string
-  default     = "us-central1"
-}
-
-variable "zone" {
-  description = "The zone inside the region"
-  type        = string
-  default     = "us-central1-a"
-}
-
 variable "service_name" {
   description = "Name of the Cloud Run service"
   type        = string
   default     = "ahun-members-service"
+}
+
+variable "region" {
+  description = "The region for resources"
+  type        = string
+}
+
+variable "project_id" {
+  description = "The GCP Project ID"
+  type        = string
 }
 
 # --- Application Configuration Variables ---

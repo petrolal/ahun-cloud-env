@@ -1,25 +1,38 @@
-# Terraform
+# Local directory for Google Cloud SDK configuration
+.gcloud/
+
+# Local directory for Terraform tool downloads/plugins
 .terraform/
-*.tfstate
-*.tfstate.*
-crash.log
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
+
+# Terraform lock file containing provider hashes
 .terraform.lock.hcl
 
-# Secrets
-*.auto.tfvars
-*.auto.tfvars.json
+# Local state files containing current environment status
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
 
-# Logs
-*.log
+# Custom variables files that may contain passwords/secrets
+*.tfvars
+*.tfvars.json
 
-# OS
+# Exclude sensitive file overrides
+secrets.auto.tfvars
+secrets.auto.tfvars.json
+
+# Crash log files from terraform runs
+crash.log
+crash.*.log
+
+# Editor-specific files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata files
 .DS_Store
 Thumbs.db
-
-# IDE
-.vscode/
-.idea/
