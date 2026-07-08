@@ -43,7 +43,7 @@ graph TD
 
 ---
 
-## ⚙Prerequisites
+## Prerequisites
 
 1.  **GCP Account & Project:** Create a GCP Project and set up billing (billing details are required, but you will stay in the free tier).
 2.  **Google Cloud CLI:** Install and authenticate:
