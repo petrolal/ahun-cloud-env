@@ -4,7 +4,7 @@ This repository contains the modular, serverless infrastructure configuration fo
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph TD
@@ -21,7 +21,7 @@ graph TD
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 ~/Projects/IaC/ahun/
@@ -43,7 +43,7 @@ graph TD
 
 ---
 
-## ⚙️ Prerequisites
+## ⚙Prerequisites
 
 1.  **GCP Account & Project:** Create a GCP Project and set up billing (billing details are required, but you will stay in the free tier).
 2.  **Google Cloud CLI:** Install and authenticate:
@@ -55,7 +55,7 @@ graph TD
 
 ---
 
-## 🚀 How to Deploy (Zero-Touch Container Compilation)
+## How to Deploy (Zero-Touch Container Compilation)
 
 ### Step 1: Initialize variables
 1. In this directory, copy the example variables file:
@@ -95,7 +95,7 @@ Instead of building Docker images locally, compile it directly in the cloud for 
 
 ---
 
-## 🔑 Access Control Setup (No JSON keys required)
+## Access Control Setup (No JSON keys required)
 
 When the deploy finishes, Terraform will output the email address of the application's dedicated Service Account:
 ```hcl
@@ -110,6 +110,6 @@ app_service_account_email = "ahun-app-sa@your-project-id.iam.gserviceaccount.com
 
 ---
 
-## 🔄 Adding More Microservices
+## Adding More Microservices
 
 To add another microservice, simply add another `module "cloud_run"` block in the root [main.tf](file:///home/petrolal/Projects/IaC/ahun/main.tf) with a different `service_name` (e.g. `service_name = "another-app"`). Since all resources inside the module are prefixed with `service_name`, they will deploy isolated resources with no naming collisions!
