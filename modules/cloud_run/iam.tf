@@ -18,3 +18,31 @@ resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.scheduler_sa.email}"
 }
+
+# Service Account for GitHub Actions CI/CD deployment
+resource "google_service_account" "github_actions_sa" {
+  account_id   = "${var.service_name}-github-sa"
+  display_name = "GitHub Actions CI/CD Deployment SA for ${var.service_name}"
+}
+
+# Grant Artifact Registry Writer
+resource "google_project_iam_member" "github_sa_registry" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.github_actions_sa.email}"
+}
+
+# Grant Cloud Run Developer
+resource "google_project_iam_member" "github_sa_run" {
+  project = var.project_id
+  role    = "roles/run.developer"
+  member  = "serviceAccount:${google_service_account.github_actions_sa.email}"
+}
+
+# Allow GitHub SA to act as the runtime service account
+resource "google_service_account_iam_member" "github_sa_act_as_app" {
+  service_account_id = google_service_account.app_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.github_actions_sa.email}"
+}
+

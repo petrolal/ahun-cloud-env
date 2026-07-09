@@ -12,3 +12,9 @@ output "app_service_account_email" {
   description = "The custom Service Account email assigned to the Cloud Run service"
   value       = google_service_account.app_sa.email
 }
+
+output "github_actions_service_account_email" {
+  description = "The Service Account email for GitHub Actions deployment"
+  value       = google_service_account.github_actions_sa.email
+}
+

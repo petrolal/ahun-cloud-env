@@ -12,3 +12,9 @@ output "app_service_account_email" {
   description = "The custom Service Account email assigned to the Cloud Run service"
   value       = module.cloud_run.app_service_account_email
 }
+
+output "github_actions_service_account_email" {
+  description = "The Service Account email for GitHub Actions deployment"
+  value       = module.cloud_run.github_actions_service_account_email
+}
+
