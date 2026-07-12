@@ -10,7 +10,7 @@ resource "google_project_service" "artifact_registry_api" {
 }
 
 resource "google_project_service" "scheduler_api" {
-  service            = "scheduler.googleapis.com"
+  service            = "cloudscheduler.googleapis.com"
   disable_on_destroy = false
 }
 

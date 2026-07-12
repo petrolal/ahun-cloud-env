@@ -18,3 +18,8 @@ output "github_actions_service_account_email" {
   value       = google_service_account.github_actions_sa.email
 }
 
+output "messaging_trigger_url" {
+  description = "The HTTP endpoint URL to trigger the daily/monthly messaging routine"
+  value       = "${google_cloud_run_v2_service.app.uri}/api/messaging/send"
+}
+

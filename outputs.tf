@@ -18,3 +18,8 @@ output "github_actions_service_account_email" {
   value       = module.cloud_run.github_actions_service_account_email
 }
 
+output "messaging_trigger_url" {
+  description = "The HTTP endpoint URL to trigger the daily/monthly messaging routine"
+  value       = module.cloud_run.messaging_trigger_url
+}
+

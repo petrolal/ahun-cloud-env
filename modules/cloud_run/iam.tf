@@ -46,3 +46,12 @@ resource "google_service_account_iam_member" "github_sa_act_as_app" {
   member             = "serviceAccount:${google_service_account.github_actions_sa.email}"
 }
 
+# Allow unauthenticated (public) access to the service
+resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
+  location = google_cloud_run_v2_service.app.location
+  project  = google_cloud_run_v2_service.app.project
+  name     = google_cloud_run_v2_service.app.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
