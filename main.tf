@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    supabase = {
+      source  = "supabase/supabase"
+      version = "~> 1.0"
+    }
   }
 
   backend "gcs" {
@@ -19,14 +23,21 @@ provider "google" {
   zone    = var.zone
 }
 
+# Supabase Module (Provisions the Database)
+module "supabase" {
+  source            = "./modules/supabase"
+  organization_id   = var.supabase_organization_id
+  database_password = var.spring_datasource_password
+}
+
 # Cloud Run Module (Hosts the container and schedules cron jobs via Cloud Scheduler)
 module "cloud_run" {
   source                     = "./modules/cloud_run"
   project_id                 = var.project_id
   region                     = var.region
   service_name               = var.service_name
-  spring_datasource_url      = var.spring_datasource_url
-  spring_datasource_username = var.spring_datasource_username
+  spring_datasource_url      = module.supabase.spring_datasource_url
+  spring_datasource_username = "postgres"
   spring_datasource_password = var.spring_datasource_password
   telegram_bot_token         = var.telegram_bot_token
   telegram_chat_id           = var.telegram_chat_id

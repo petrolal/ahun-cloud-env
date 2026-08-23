@@ -23,17 +23,6 @@ variable "service_name" {
 
 # --- Application Configuration Variables ---
 
-variable "spring_datasource_url" {
-  description = "Supabase PostgreSQL Database JDBC Connection URL"
-  type        = string
-  sensitive   = true
-}
-
-variable "spring_datasource_username" {
-  description = "Supabase Database Username"
-  type        = string
-  sensitive   = true
-}
 
 variable "spring_datasource_password" {
   description = "Supabase Database Password"
@@ -58,4 +47,15 @@ variable "google_credentials" {
   type        = string
   sensitive   = true
   default     = "DEFAULT_GCP"
+}
+
+variable "supabase_access_token" {
+  description = "Supabase Access Token"
+  type        = string
+  sensitive   = true
+}
+
+variable "supabase_organization_id" {
+  description = "Supabase Organization ID"
+  type        = string
 }
