@@ -3,20 +3,11 @@ variable "organization_id" {
   description = "Supabase Organization ID"
 }
 
-variable "project_name" {
-  type        = string
-  description = "Supabase Project Name"
-  default     = "ahun-members-db"
-}
-
-variable "database_password" {
-  type        = string
-  description = "Supabase Database Password"
-  sensitive   = true
-}
-
-variable "region" {
-  type        = string
-  description = "Region for the Supabase project"
-  default     = "us-east-1"
+variable "databases" {
+  description = "Map of database configurations. The key is a logical name (e.g. 'primary'), and the value contains the project settings."
+  type = map(object({
+    project_name      = string
+    database_password = string
+    region            = optional(string, "us-east-1")
+  }))
 }

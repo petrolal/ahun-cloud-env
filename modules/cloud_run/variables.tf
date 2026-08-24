@@ -16,39 +16,21 @@ variable "project_id" {
 
 # --- Application Configuration Variables ---
 
-variable "spring_datasource_url" {
-  description = "Supabase PostgreSQL Database JDBC Connection URL"
-  type        = string
-  sensitive   = true
+variable "env_vars" {
+  description = "A map of environment variables to inject into the container"
+  type        = map(string)
+  default     = {}
 }
 
-variable "spring_datasource_username" {
-  description = "Supabase Database Username"
-  type        = string
-  sensitive   = true
-}
-
-variable "spring_datasource_password" {
-  description = "Supabase Database Password"
-  type        = string
-  sensitive   = true
-}
-
-variable "telegram_bot_token" {
-  description = "Telegram Bot Token"
-  type        = string
-  sensitive   = true
-}
-
-variable "telegram_chat_id" {
-  description = "Telegram Chat ID for notifications"
-  type        = string
-  sensitive   = true
-}
-
-variable "google_credentials" {
-  description = "Google Service Account JSON string for Sheets API (defaults to DEFAULT_GCP to use Cloud Run Application Default Credentials)"
-  type        = string
-  sensitive   = true
-  default     = "DEFAULT_GCP"
+variable "scheduler_jobs" {
+  description = "A map of scheduler jobs to invoke the Cloud Run service"
+  type = map(object({
+    description = string
+    schedule    = string
+    time_zone   = string
+    uri_path    = string
+    http_method = string
+    body        = string
+  }))
+  default = {}
 }

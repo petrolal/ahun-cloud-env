@@ -1,14 +1,14 @@
-output "project_id" {
-  description = "The ID of the Supabase project"
-  value       = supabase_project.db.id
+output "project_ids" {
+  description = "Map of Supabase project IDs"
+  value       = { for k, db in supabase_project.db : k => db.id }
 }
 
-output "db_host" {
-  description = "The database host URL"
-  value       = "db.${supabase_project.db.id}.supabase.co"
+output "db_hosts" {
+  description = "Map of database host URLs"
+  value       = { for k, db in supabase_project.db : k => "db.${db.id}.supabase.co" }
 }
 
-output "spring_datasource_url" {
-  description = "JDBC connection string for Spring Boot"
-  value       = "jdbc:postgresql://db.${supabase_project.db.id}.supabase.co:5432/postgres"
+output "spring_datasource_urls" {
+  description = "Map of JDBC connection strings for Spring Boot"
+  value       = { for k, db in supabase_project.db : k => "jdbc:postgresql://db.${db.id}.supabase.co:5432/postgres" }
 }
