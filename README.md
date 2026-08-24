@@ -69,7 +69,12 @@ curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
 ```bash
 cp terraform.tfvars.example terraform.tfvars
 ```
-Fill in your GCP project ID, Supabase connection details, and Telegram credentials.
+Fill in your GCP project ID, Supabase connection details, and Telegram credentials in the `terraform.tfvars` file.
+
+For the Google Cloud credentials, set it as an environment variable before running Terraform commands to keep your JSON key secure:
+```bash
+export TF_VAR_google_credentials=$(cat /path/to/your/credentials.json)
+```
 
 ### Step 2: Create the Artifact Registries first
 Before Cloud Run can pull the container images, the registries must exist. Run:
