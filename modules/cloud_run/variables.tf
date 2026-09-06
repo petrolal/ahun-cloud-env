@@ -17,7 +17,13 @@ variable "project_id" {
 # --- Application Configuration Variables ---
 
 variable "env_vars" {
-  description = "A map of environment variables to inject into the container"
+  description = "A map of plaintext environment variables to inject into the container"
+  type        = map(string)
+  default     = {}
+}
+
+variable "secret_env_vars" {
+  description = "A map of environment variable name => Secret Manager secret id. Injected as secret references and the app SA is granted secretAccessor on each."
   type        = map(string)
   default     = {}
 }

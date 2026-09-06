@@ -31,7 +31,13 @@ variable "spring_datasource_password" {
 }
 
 variable "telegram_bot_token" {
-  description = "Telegram Bot Token"
+  description = "Telegram Bot Token for the ahun-members-service bot (issued by @BotFather)"
+  type        = string
+  sensitive   = true
+}
+
+variable "duty_telegram_bot_token" {
+  description = "Telegram Bot Token for the ahun-duty-service bot (issued by @BotFather)"
   type        = string
   sensitive   = true
 }

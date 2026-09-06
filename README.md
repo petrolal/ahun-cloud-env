@@ -35,31 +35,71 @@ graph TD
 └── modules/
     └── cloud_run/           # Reusable Module for serverless Cloud Run resources
     └── supabase/            # Reusable Module for Supabase Projects
+    └── telegram_bot/        # Reusable Module: token in Secret Manager + bot profile
 ```
 
 ---
 
-## Setting up Telegram Bots (BotFather & Webhooks)
+## Setting up Telegram Bots (BotFather + `telegram_bot` module)
 
-If your services act as Telegram bots (like `ahun-members-service` and `ahun-duty-service`), follow these steps:
+`ahun-members-service` talks to the Telegram Bot API through
+`org.telegram:telegrambots-spring-boot-starter` (`TelegramBotAdapter`). It uses
+long polling and only *sends* messages: Cloud Scheduler calls
+`POST /api/messaging/send` daily/monthly and the adapter pushes the birthday /
+monthly digest to a chat. It needs two settings: `TELEGRAM_BOT_TOKEN` (from
+BotFather) and `TELEGRAM_CHAT_ID` (the target chat/group id).
 
-### 1. Create the Bots in BotFather
-1. Open Telegram and search for **@BotFather**.
-2. Send `/newbot` and follow the prompts to create your bots (one for members, one for duty).
-3. BotFather will provide an **HTTP API Token** for each bot (e.g., `123456789:ABCDEF...`).
+### 1. Create the bots in BotFather (one-time, manual)
 
-### 2. Inject Tokens via Terraform
-Add these tokens to your `terraform.tfvars` file and inject them into the `env_vars` block of your `module` definitions in `main.tf`.
+Telegram has **no API to create a bot or mint a token** — that is BotFather only.
 
-### 3. Register the Webhooks
-After running `terraform apply`, GCP will generate a secure `https://` URL for each of your Cloud Run services. You must tell Telegram to forward incoming messages to these URLs.
+1. Open Telegram, chat with **@BotFather**.
+2. Send `/newbot` and follow the prompts. Do this twice (members + duty).
+3. Copy the **HTTP API token** for each bot (e.g. `123456789:ABCDEF...`).
 
-Run this command in your terminal for each bot:
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -d "url=https://<YOUR_CLOUD_RUN_SERVICE_URL>/api/webhook"
+### 2. Put the tokens in `terraform.tfvars`
+
+```hcl
+telegram_bot_token      = "<members bot token from BotFather>"
+duty_telegram_bot_token = "<duty bot token from BotFather>"
+telegram_chat_id        = "<target chat id, e.g. -1001234567890>"
 ```
-*(Ensure you replace `/api/webhook` with the actual path your Spring Boot application uses to receive updates).*
+
+### 3. What Terraform then manages
+
+The `modules/telegram_bot` module (instantiated as `module.telegram_members` and
+`module.telegram_duty` in `main.tf`):
+
+*   **Secret Manager** — stores each token as `${bot_name}-telegram-bot-token`.
+    The Cloud Run service consumes it via a `secret_key_ref` env var (no plaintext
+    token in state or on the revision), and the app service account is granted
+    `roles/secretmanager.secretAccessor` on it.
+*   **Token validation** — the `telegram_bot` data source calls `getMe` on every
+    plan/apply; `terraform output members_bot_link` / `duty_bot_link` show the
+    resolved `t.me/...` handle.
+*   **Bot profile** — optional `commands` (setMyCommands) and `webhook_url`
+    (setWebhook) inputs, managed via the `yi-jiayu/telegram` provider. Both
+    default to empty. The members bot stays on long polling, so leave
+    `webhook_url` empty (setting a webhook disables `getUpdates`).
+
+> The provider covers webhook + commands only. Bot name / description / about
+> text are still changed through BotFather.
+
+To register commands for a bot, pass them to its module block in `main.tf`:
+
+```hcl
+module "telegram_members" {
+  source   = "./modules/telegram_bot"
+  bot_name = "ahun-members-service"
+  bot_token = var.telegram_bot_token
+
+  commands = [
+    { command = "status", description = "Show sync status" },
+  ]
+
+  providers = { telegram = telegram.members }
+}
+```
 
 ---
 

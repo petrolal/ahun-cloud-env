@@ -14,8 +14,8 @@ resource "google_cloud_run_v2_service" "app" {
     }
 
     containers {
-      # Points to the image path in Artifact Registry
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.repo.repository_id}/${var.service_name}:latest"
+      # Initial placeholder image. The actual image will be deployed by the CI/CD pipeline.
+      image = "us-docker.pkg.dev/cloudrun/container/hello"
 
       resources {
         limits = {
@@ -28,7 +28,7 @@ resource "google_cloud_run_v2_service" "app" {
         container_port = 8080
       }
 
-      # Inject all application environment variables dynamically
+      # Inject all plaintext application environment variables dynamically
       dynamic "env" {
         for_each = var.env_vars
         content {
@@ -36,9 +36,34 @@ resource "google_cloud_run_v2_service" "app" {
           value = env.value
         }
       }
+
+      # Inject secret-backed environment variables from Secret Manager
+      dynamic "env" {
+        for_each = var.secret_env_vars
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
     }
   }
 
-  # Ensure the service starts after the repository is created
-  depends_on = [google_artifact_registry_repository.repo]
+  # Ignore changes to the image since it is managed by the CI/CD pipeline
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image
+    ]
+  }
+
+  # Ensure the service starts after the repository exists and the app SA can
+  # read the referenced secrets.
+  depends_on = [
+    google_artifact_registry_repository.repo,
+    google_secret_manager_secret_iam_member.secret_accessor
+  ]
 }

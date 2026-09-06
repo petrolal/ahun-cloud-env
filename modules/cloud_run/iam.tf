@@ -19,6 +19,14 @@ resource "google_cloud_run_v2_service_iam_member" "scheduler_invoker" {
   member   = "serviceAccount:${google_service_account.scheduler_sa.email}"
 }
 
+# Allow the application to read the Secret Manager secrets referenced as env vars
+resource "google_secret_manager_secret_iam_member" "secret_accessor" {
+  for_each  = var.secret_env_vars
+  secret_id = each.value
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.app_sa.email}"
+}
+
 # Service Account for GitHub Actions CI/CD deployment
 resource "google_service_account" "github_actions_sa" {
   account_id   = "${var.service_name}-github-sa"
