@@ -1,7 +1,7 @@
-# Artifact Registry to store application container image (prefixed with service_name)
+# Artifact Registry to store the application container image (named after the service)
 resource "google_artifact_registry_repository" "repo" {
   location      = var.region
-  repository_id = "${var.service_name}-repo"
+  repository_id = var.service_name
   description   = "Docker repository for ${var.service_name}"
   format        = "DOCKER"
 

@@ -40,66 +40,73 @@ graph TD
 
 ---
 
-## Setting up Telegram Bots (BotFather + `telegram_bot` module)
+## Setting up the Telegram Bot (BotFather + `telegram_bot` module)
 
-`ahun-members-service` talks to the Telegram Bot API through
-`org.telegram:telegrambots-spring-boot-starter` (`TelegramBotAdapter`). It uses
-long polling and only *sends* messages: Cloud Scheduler calls
-`POST /api/messaging/send` daily/monthly and the adapter pushes the birthday /
-monthly digest to a chat. It needs two settings: `TELEGRAM_BOT_TOKEN` (from
-BotFather) and `TELEGRAM_CHAT_ID` (the target chat/group id).
+Both services share **one** Telegram bot. `ahun-members-service` talks to the
+Telegram Bot API through `org.telegram:telegrambots-spring-boot-starter`
+(`TelegramBotAdapter`). It uses long polling and only *sends* messages: Cloud
+Scheduler calls `POST /api/messaging/send` daily/monthly and the adapter pushes
+the birthday / monthly digest to a chat. It needs two settings:
+`TELEGRAM_BOT_TOKEN` (from BotFather) and `TELEGRAM_CHAT_ID` (the target
+chat/group id). `ahun-duty-service` gets the same token wired in, ready for when
+its Telegram integration is built; per-service routing stays via each service's
+own `TELEGRAM_CHAT_ID`.
 
-### 1. Create the bots in BotFather (one-time, manual)
+### 1. Create the bot in BotFather (one-time, manual)
 
 Telegram has **no API to create a bot or mint a token** — that is BotFather only.
 
 1. Open Telegram, chat with **@BotFather**.
-2. Send `/newbot` and follow the prompts. Do this twice (members + duty).
-3. Copy the **HTTP API token** for each bot (e.g. `123456789:ABCDEF...`).
+2. Send `/newbot` and follow the prompts (one bot only).
+3. Copy the **HTTP API token** (e.g. `123456789:ABCDEF...`).
 
-### 2. Put the tokens in `terraform.tfvars`
+### 2. Put the token in `terraform.tfvars`
 
 ```hcl
-telegram_bot_token      = "<members bot token from BotFather>"
-duty_telegram_bot_token = "<duty bot token from BotFather>"
-telegram_chat_id        = "<target chat id, e.g. -1001234567890>"
+telegram_bot_token = "<bot token from BotFather>"
+telegram_chat_id   = "<target chat id, e.g. -1001234567890>"
 ```
 
 ### 3. What Terraform then manages
 
-The `modules/telegram_bot` module (instantiated as `module.telegram_members` and
-`module.telegram_duty` in `main.tf`):
+The `modules/telegram_bot` module (instantiated once as `module.telegram_bot` in
+`main.tf`, with `bot_name = "ahun"`):
 
-*   **Secret Manager** — stores each token as `${bot_name}-telegram-bot-token`.
-    The Cloud Run service consumes it via a `secret_key_ref` env var (no plaintext
-    token in state or on the revision), and the app service account is granted
+*   **Secret Manager** — stores the token as `ahun-telegram-bot-token`. Both Cloud
+    Run services consume it via a `secret_key_ref` env var (no plaintext token in
+    state or on the revision), and each service's app service account is granted
     `roles/secretmanager.secretAccessor` on it.
 *   **Token validation** — the `telegram_bot` data source calls `getMe` on every
-    plan/apply; `terraform output members_bot_link` / `duty_bot_link` show the
-    resolved `t.me/...` handle.
-*   **Bot profile** — optional `commands` (setMyCommands) and `webhook_url`
-    (setWebhook) inputs, managed via the `yi-jiayu/telegram` provider. Both
-    default to empty. The members bot stays on long polling, so leave
-    `webhook_url` empty (setting a webhook disables `getUpdates`).
+    plan/apply; `terraform output bot_link` shows the resolved `t.me/...` handle.
+*   **Bot profile** — `commands` (setMyCommands) and `webhook_url` (setWebhook)
+    inputs, managed via the `yi-jiayu/telegram` provider. `webhook_url` defaults
+    to empty — the members bot stays on long polling, so leave it that way
+    (setting a webhook disables `getUpdates`).
 
 > The provider covers webhook + commands only. Bot name / description / about
 > text are still changed through BotFather.
 
-To register commands for a bot, pass them to its module block in `main.tf`:
+### 4. Command menu (`commands`)
 
-```hcl
-module "telegram_members" {
-  source   = "./modules/telegram_bot"
-  bot_name = "ahun-members-service"
-  bot_token = var.telegram_bot_token
+`main.tf` already registers the shared bot's slash-command menu, built from what
+each service does:
 
-  commands = [
-    { command = "status", description = "Show sync status" },
-  ]
+| Command | Service | Purpose |
+|---|---|---|
+| `/aniversariantes` | members | Birthdays in the current month |
+| `/aniversariantes_hoje` | members | Birthdays today |
+| `/membros` | members | List all registered members |
+| `/sincronizar` | members | Sync the Google Sheet into the database |
+| `/escala` | duty | Current duty roster |
+| `/escala_proxima` | duty | Next duty roster |
+| `/escala_cartao` | duty | Generate the duty-roster card |
 
-  providers = { telegram = telegram.members }
-}
-```
+`setMyCommands` only publishes the **menu** (what users see when they type `/`).
+The behaviour behind each command must be implemented in the owning service's
+Telegram update handler. Today `ahun-members-service` is send-only
+(`onUpdateReceived` is empty) and `ahun-duty-service` has no Telegram code yet,
+so the `escala*` entries are menu-only placeholders. Edit the `commands` list in
+the `module "telegram_bot"` block in `main.tf` to add or change entries.
 
 ---
 
@@ -116,31 +123,35 @@ For the Google Cloud credentials, set it as an environment variable before runni
 export TF_VAR_google_credentials=$(cat /path/to/your/credentials.json)
 ```
 
-### Step 2: Create the Artifact Registries first
-Before Cloud Run can pull the container images, the registries must exist. Run:
+### Step 2: Apply the infrastructure
 ```bash
 terraform init
-terraform apply -target=module.ahun_members_service.google_artifact_registry_repository.repo -target=module.ahun_duty_service.google_artifact_registry_repository.repo
-```
-
-### Step 3: Build & Push the App Images using Cloud Build
-Compile it directly in the cloud for free using Cloud Build:
-```bash
-# For Members Service
-cd ~/Projects/Ahun/ahun-members-service
-gcloud builds submit --tag us-central1-docker.pkg.dev/your-gcp-project-id/ahun-members-service-repo/ahun-members-service:latest .
-
-# For Duty Service
-cd ~/Projects/Ahun/ahun-duty-service
-gcloud builds submit --tag us-central1-docker.pkg.dev/your-gcp-project-id/ahun-duty-service-repo/ahun-duty-service:latest .
-```
-
-### Step 4: Apply the Full Infrastructure
-Go back to the IaC directory and apply the full plan:
-```bash
-cd ~/Projects/IaC/ahun-cloud-env
 terraform apply
 ```
+Each Cloud Run service comes up on a public placeholder image
+(`us-docker.pkg.dev/cloudrun/container/hello`) and its Artifact Registry repo is
+created alongside it — no targeted apply or pre-build needed. Terraform owns the
+service's env vars, secret refs, scaling and scheduler; the `image` field is
+`ignore_changes`d so the pipeline can own it.
+
+### Step 3: Let the CI/CD pipeline build and deploy the real image
+The service's GitHub Actions pipeline (`.github/workflows/deploy.yml`) builds the
+container, pushes it to the repo Terraform created, and runs `gcloud run deploy`
+to roll out the real revision:
+
+```
+us-central1-docker.pkg.dev/<project>/ahun-members-service/ahun-members-service:<version>
+```
+
+The repo id is the **service name** (`ahun-members-service`), so the pipeline's
+`ARTIFACT_REGISTRY_REPO` must be set to that (no `-repo` suffix). To build
+manually instead of via the pipeline:
+```bash
+cd ~/Projects/Ahun/ahun-members-service
+gcloud builds submit --tag us-central1-docker.pkg.dev/your-gcp-project-id/ahun-members-service/ahun-members-service:latest .
+```
+
+Re-running `terraform apply` later will not revert the pipeline-deployed image.
 
 ---
 

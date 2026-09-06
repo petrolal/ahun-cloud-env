@@ -5,7 +5,6 @@ service_name               = "ahun-members-service"
 supabase_access_token      = "your-supabase-access-token"
 supabase_organization_id   = "your-supabase-organization-id"
 spring_datasource_password = "your-supabase-db-password"
-telegram_bot_token         = "your-members-telegram-bot-token"
-duty_telegram_bot_token    = "your-duty-telegram-bot-token"
+telegram_bot_token         = "your-ahun-telegram-bot-token"
 telegram_chat_id           = "your-telegram-chat-id"
 

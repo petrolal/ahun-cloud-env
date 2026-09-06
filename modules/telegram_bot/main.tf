@@ -7,9 +7,8 @@ terraform {
     # Telegram has no API to create a bot; the token must come from @BotFather.
     # This provider only manages an existing bot's webhook and commands.
     telegram = {
-      source                = "yi-jiayu/telegram"
-      version               = "~> 0.3"
-      configuration_aliases = [telegram]
+      source  = "yi-jiayu/telegram"
+      version = "~> 0.3"
     }
   }
 }
@@ -35,21 +34,17 @@ resource "google_secret_manager_secret_version" "bot_token" {
 }
 
 # Resolves the bot identity via getMe. Also validates that the token is live.
-data "telegram_bot" "this" {
-  provider = telegram
-}
+data "telegram_bot" "this" {}
 
 # setMyCommands - only managed when commands are provided.
 resource "telegram_bot_commands" "this" {
-  provider = telegram
   count    = length(var.commands) > 0 ? 1 : 0
   commands = var.commands
 }
 
-# setWebhook - only managed when a URL is provided. The members bot stays on
-# long polling, so leaving webhook_url empty is the expected default.
+# setWebhook - only managed when a URL is provided. The Ahun bot stays on long
+# polling, so leaving webhook_url empty is the expected default.
 resource "telegram_bot_webhook" "this" {
-  provider        = telegram
   count           = var.webhook_url != "" ? 1 : 0
   url             = var.webhook_url
   allowed_updates = var.webhook_allowed_updates

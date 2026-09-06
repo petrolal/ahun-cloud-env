@@ -1,5 +1,5 @@
 variable "bot_name" {
-  description = "Logical name of the bot, used for the Secret Manager secret id and labels (e.g. ahun-members-service)"
+  description = "Logical name of the bot, used for the Secret Manager secret id and labels (e.g. ahun)"
   type        = string
 }
 

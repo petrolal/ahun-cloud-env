@@ -48,34 +48,19 @@ output "duty_messaging_trigger_url" {
   value       = module.ahun_duty_service.messaging_trigger_url
 }
 
-# --- Telegram bots ---
+# --- Telegram bot (shared by both services) ---
 
-output "members_bot_username" {
-  description = "Resolved @username of the Ahun Members Telegram bot"
-  value       = module.telegram_members.bot_username
+output "bot_username" {
+  description = "Resolved @username of the shared Ahun Telegram bot"
+  value       = module.telegram_bot.bot_username
 }
 
-output "members_bot_link" {
-  description = "Public t.me link for the Ahun Members Telegram bot"
-  value       = module.telegram_members.bot_link
+output "bot_link" {
+  description = "Public t.me link for the shared Ahun Telegram bot"
+  value       = module.telegram_bot.bot_link
 }
 
-output "members_bot_token_secret" {
-  description = "Secret Manager secret id holding the Ahun Members bot token"
-  value       = module.telegram_members.secret_id
-}
-
-output "duty_bot_username" {
-  description = "Resolved @username of the Ahun Duty Telegram bot"
-  value       = module.telegram_duty.bot_username
-}
-
-output "duty_bot_link" {
-  description = "Public t.me link for the Ahun Duty Telegram bot"
-  value       = module.telegram_duty.bot_link
-}
-
-output "duty_bot_token_secret" {
-  description = "Secret Manager secret id holding the Ahun Duty bot token"
-  value       = module.telegram_duty.secret_id
+output "bot_token_secret" {
+  description = "Secret Manager secret id holding the shared Ahun bot token"
+  value       = module.telegram_bot.secret_id
 }

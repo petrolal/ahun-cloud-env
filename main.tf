@@ -29,41 +29,38 @@ provider "google" {
   zone    = var.zone
 }
 
-# One aliased Telegram provider per bot - the provider is authenticated with a
-# single bot token, so multiple bots need multiple aliased configurations.
+# Authenticated with the single shared Ahun bot token (from @BotFather).
 provider "telegram" {
-  alias     = "members"
   bot_token = var.telegram_bot_token
 }
 
-provider "telegram" {
-  alias     = "duty"
-  bot_token = var.duty_telegram_bot_token
-}
-
-# Telegram bot: ahun-members-service
-# Stores the BotFather token in Secret Manager and manages the bot profile.
-module "telegram_members" {
+# One Telegram bot shared by both services. Stores the BotFather token in Secret
+# Manager and manages the bot profile (commands / webhook). Each service routes
+# its own messages via its TELEGRAM_CHAT_ID.
+#
+# `commands` is the bot's slash-command menu (setMyCommands), derived from each
+# service's capabilities. It only publishes the menu users see when they type
+# "/"; the behaviour behind each command must be implemented in the owning
+# service's Telegram update handler (today ahun-members-service is send-only and
+# ahun-duty-service has no Telegram code yet).
+module "telegram_bot" {
   source    = "./modules/telegram_bot"
-  bot_name  = "ahun-members-service"
+  bot_name  = "ahun"
   bot_token = var.telegram_bot_token
 
-  providers = {
-    telegram = telegram.members
-  }
+  commands = [
+    # --- ahun-members-service (birthdays + Google Sheet sync) ---
+    { command = "aniversariantes", description = "Aniversariantes do mês atual" },
+    { command = "aniversariantes_hoje", description = "Aniversariantes de hoje" },
+    { command = "membros", description = "Lista todos os membros cadastrados" },
+    { command = "sincronizar", description = "Sincroniza a planilha do Google com o banco" },
 
-  depends_on = [google_project_service.secretmanager_api]
-}
-
-# Telegram bot: ahun-duty-service
-module "telegram_duty" {
-  source    = "./modules/telegram_bot"
-  bot_name  = "ahun-duty-service"
-  bot_token = var.duty_telegram_bot_token
-
-  providers = {
-    telegram = telegram.duty
-  }
+    # --- ahun-duty-service (escala de plantão) — menu only until the service
+    #     implements its Telegram handlers ---
+    { command = "escala", description = "Escala de plantão atual" },
+    { command = "escala_proxima", description = "Próxima escala de plantão" },
+    { command = "escala_cartao", description = "Gera o cartão da escala de plantão" },
+  ]
 
   depends_on = [google_project_service.secretmanager_api]
 }
@@ -101,7 +98,7 @@ module "ahun_members_service" {
 
   # Bot token is injected from Secret Manager rather than as plaintext.
   secret_env_vars = {
-    TELEGRAM_BOT_TOKEN = module.telegram_members.secret_id
+    TELEGRAM_BOT_TOKEN = module.telegram_bot.secret_id
   }
 
   scheduler_jobs = {
@@ -146,10 +143,10 @@ module "ahun_duty_service" {
     GOOGLE_CREDENTIALS         = replace(var.google_credentials, "\n", "")
   }
 
-  # Duty bot token from Secret Manager, ready for the service to consume once
-  # its Telegram integration is implemented.
+  # Same shared bot token from Secret Manager, ready for the service to consume
+  # once its Telegram integration is implemented.
   secret_env_vars = {
-    TELEGRAM_BOT_TOKEN = module.telegram_duty.secret_id
+    TELEGRAM_BOT_TOKEN = module.telegram_bot.secret_id
   }
 
   scheduler_jobs = {}
