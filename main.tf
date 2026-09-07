@@ -55,11 +55,11 @@ module "telegram_bot" {
     { command = "membros", description = "Lista todos os membros cadastrados" },
     { command = "sincronizar", description = "Sincroniza a planilha do Google com o banco" },
 
-    # --- ahun-duty-service (escala de plantão) — menu only until the service
+    # --- ahun-duty-service (função / gira) — menu only until the service
     #     implements its Telegram handlers ---
-    { command = "escala", description = "Escala de plantão atual" },
-    { command = "escala_proxima", description = "Próxima escala de plantão" },
-    { command = "escala_cartao", description = "Gera o cartão da escala de plantão" },
+    { command = "funcao", description = "Função atual" },
+    { command = "proxima_funcao", description = "Próxima função da casa" },
+    { command = "cartao_funcao", description = "Gera o cartão da função" },
   ]
 
   depends_on = [google_project_service.secretmanager_api]
