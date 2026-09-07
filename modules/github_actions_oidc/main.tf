@@ -51,19 +51,33 @@ resource "google_service_account_iam_member" "wif" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${each.value}"
 }
 
-# Push container images to Artifact Registry.
-resource "google_project_iam_member" "registry" {
-  for_each = var.services
-  project  = var.project_id
-  role     = "roles/artifactregistry.writer"
-  member   = "serviceAccount:${google_service_account.ci[each.key].email}"
+locals {
+  ci_roles = [
+    "roles/artifactregistry.writer",
+    "roles/run.admin",
+    "roles/cloudscheduler.admin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/iam.serviceAccountUser",
+    "roles/secretmanager.admin",
+    "roles/storage.objectUser",
+  ]
+
+  service_roles = merge([
+    for svc_name, repo in var.services : {
+      for role in local.ci_roles : "${svc_name}_${role}" => {
+        service_account_email = google_service_account.ci[svc_name].email
+        role                  = role
+      }
+    }
+  ]...)
 }
 
-# Deploy new Cloud Run revisions. actAs on each service's runtime SA is granted
-# in that service's own Terraform root, which owns the runtime SA.
-resource "google_project_iam_member" "run" {
-  for_each = var.services
+# Permissions granted to each service's CI/CD service account so its pipeline
+# can push images, provision its per-service Cloud Run infra, and deploy revisions.
+resource "google_project_iam_member" "ci_roles" {
+  for_each = local.service_roles
   project  = var.project_id
-  role     = "roles/run.developer"
-  member   = "serviceAccount:${google_service_account.ci[each.key].email}"
+  role     = each.value.role
+  member   = "serviceAccount:${each.value.service_account_email}"
 }
+

@@ -83,6 +83,23 @@ module "supabase" {
   }
 }
 
+locals {
+  services = {
+    "ahun-members-service" = "petrolal/ahun-members-service"
+    "ahun-duty-service"    = "petrolal/ahun-duty-service"
+  }
+}
+
+# Artifact Registry (One Docker repo per service)
+module "artifact_registry" {
+  source       = "./modules/artifact_registry"
+  project_id   = var.project_id
+  region       = var.region
+  repositories = { for k, v in local.services : k => k }
+
+  depends_on = [google_project_service.artifact_registry_api]
+}
+
 # GitHub Actions CI/CD identities (Workload Identity Federation). One SA per
 # service repo, each impersonable only from its own repo. The service pipelines
 # authenticate with these instead of a JSON key.
@@ -90,10 +107,7 @@ module "github_actions_oidc" {
   source       = "./modules/github_actions_oidc"
   project_id   = var.project_id
   github_owner = "petrolal"
-  services = {
-    "ahun-members-service" = "petrolal/ahun-members-service"
-    "ahun-duty-service"    = "petrolal/ahun-duty-service"
-  }
+  services     = local.services
 
   depends_on = [google_project_service.iam_api]
 }
