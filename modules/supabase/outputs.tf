@@ -9,6 +9,6 @@ output "db_hosts" {
 }
 
 output "spring_datasource_urls" {
-  description = "Map of JDBC connection strings for Spring Boot"
-  value       = { for k, db in supabase_project.db : k => "jdbc:postgresql://db.${db.id}.supabase.co:5432/postgres" }
+  description = "Map of JDBC connection strings for Spring Boot (direct 5432 connection, database per the databases[*].database_name input)"
+  value       = { for k, db in supabase_project.db : k => "jdbc:postgresql://db.${db.id}.supabase.co:5432/${var.databases[k].database_name}" }
 }

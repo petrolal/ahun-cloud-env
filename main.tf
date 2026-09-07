@@ -73,89 +73,39 @@ module "supabase" {
     "members" = {
       project_name      = "ahun-members-db"
       database_password = var.spring_datasource_password
+      database_name     = "ahun_members_service"
     }
     "duty" = {
       project_name      = "ahun-duty-db"
       database_password = var.spring_datasource_password
+      database_name     = "ahun_duty_service"
     }
   }
 }
 
-# Cloud Run Module: Ahun Members Service (Telegram Bot)
-module "ahun_members_service" {
-  source       = "./modules/cloud_run"
+# GitHub Actions CI/CD identities (Workload Identity Federation). One SA per
+# service repo, each impersonable only from its own repo. The service pipelines
+# authenticate with these instead of a JSON key.
+module "github_actions_oidc" {
+  source       = "./modules/github_actions_oidc"
   project_id   = var.project_id
-  region       = var.region
-  service_name = "ahun-members-service"
-
-  env_vars = {
-    SPRING_DATASOURCE_URL      = module.supabase.spring_datasource_urls["members"]
-    SPRING_DATASOURCE_USERNAME = "postgres"
-    SPRING_DATASOURCE_PASSWORD = var.spring_datasource_password
-    TELEGRAM_CHAT_ID           = var.telegram_chat_id
-    GOOGLE_CREDENTIALS         = replace(var.google_credentials, "\n", "")
+  github_owner = "petrolal"
+  services = {
+    "ahun-members-service" = "petrolal/ahun-members-service"
+    "ahun-duty-service"    = "petrolal/ahun-duty-service"
   }
 
-  # Bot token is injected from Secret Manager rather than as plaintext.
-  secret_env_vars = {
-    TELEGRAM_BOT_TOKEN = module.telegram_bot.secret_id
-  }
-
-  scheduler_jobs = {
-    "daily-bday" = {
-      description = "Sends daily birthday notifications via Telegram"
-      schedule    = "0 8 * * *"
-      time_zone   = "America/Sao_Paulo"
-      uri_path    = "/api/messaging/send"
-      http_method = "POST"
-      body        = "{\"daily\":true}"
-    }
-    "monthly-notif" = {
-      description = "Sends monthly members notifications via Telegram"
-      schedule    = "0 9 1 * *"
-      time_zone   = "America/Sao_Paulo"
-      uri_path    = "/api/messaging/send"
-      http_method = "POST"
-      body        = "{\"daily\":false}"
-    }
-  }
-
-  depends_on = [
-    google_project_service.run_api,
-    google_project_service.artifact_registry_api,
-    google_project_service.scheduler_api,
-    google_project_service.iam_api,
-    google_project_service.secretmanager_api
-  ]
+  depends_on = [google_project_service.iam_api]
 }
 
-# Cloud Run Module: Ahun Duty Service (Telegram Bot)
-module "ahun_duty_service" {
-  source       = "./modules/cloud_run"
-  project_id   = var.project_id
-  region       = var.region
-  service_name = "ahun-duty-service"
-
-  env_vars = {
-    SPRING_DATASOURCE_URL      = module.supabase.spring_datasource_urls["duty"]
-    SPRING_DATASOURCE_USERNAME = "postgres"
-    SPRING_DATASOURCE_PASSWORD = var.spring_datasource_password
-    GOOGLE_CREDENTIALS         = replace(var.google_credentials, "\n", "")
-  }
-
-  # Same shared bot token from Secret Manager, ready for the service to consume
-  # once its Telegram integration is implemented.
-  secret_env_vars = {
-    TELEGRAM_BOT_TOKEN = module.telegram_bot.secret_id
-  }
-
-  scheduler_jobs = {}
-
-  depends_on = [
-    google_project_service.run_api,
-    google_project_service.artifact_registry_api,
-    google_project_service.scheduler_api,
-    google_project_service.iam_api,
-    google_project_service.secretmanager_api
-  ]
-}
+# NOTE: The Cloud Run services themselves are NOT managed here. Each service repo
+# owns its own Terraform root under `<repo>/gcp/` (with a vendored copy of the
+# cloud_run module at `<repo>/gcp/modules/cloud_run/`), applied by that service's
+# GitHub Actions pipeline right before it deploys the container.
+# This root only provisions the shared pieces every service consumes:
+#   - project API enablement (apis.tf)
+#   - Supabase projects (module.supabase)
+#   - the Telegram bot secret + profile (module.telegram_bot)
+# Feed the per-service pipeline these outputs as TF_VAR_*:
+#   spring_datasource_urls["<svc>"]  -> TF_VAR_spring_datasource_url
+#   bot_token_secret                 -> TF_VAR_bot_token_secret_id

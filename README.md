@@ -24,19 +24,48 @@ graph TD
 
 ## Project Structure
 
+This repo — **shared infra only**:
+
 ```
-~/Projects/IaC/ahun/
-├── main.tf                  # Root main.tf (calls modules for each service)
-├── variables.tf             # Root variables declaration
-├── outputs.tf               # Root outputs declaration
-├── apis.tf                  # Automatically enables required GCP APIs
-├── README.md                # This documentation
-├── terraform.tfvars.example # Template of variables to provide
+~/Projects/IaC/ahun-cloud-env/
+├── main.tf                  # SHARED root: Supabase projects + Telegram bot
+├── variables.tf             # Shared root variables
+├── outputs.tf               # Shared root outputs (feed these to service pipelines)
+├── apis.tf                  # Enables required GCP APIs on the project
+├── terraform.tfvars.example # Template for the shared root
 └── modules/
-    └── cloud_run/           # Reusable Module for serverless Cloud Run resources
-    └── supabase/            # Reusable Module for Supabase Projects
-    └── telegram_bot/        # Reusable Module: token in Secret Manager + bot profile
+    ├── supabase/            # Reusable: Supabase Projects
+    └── telegram_bot/        # Reusable: token in Secret Manager + bot profile
 ```
+
+Each **service repo** — its own Cloud Run infra, self-contained:
+
+```
+~/Projects/Ahun/ahun-members-service/
+├── (application code, Dockerfile, …)
+└── gcp/                     # PER-SERVICE root, applied by this service's pipeline
+    ├── main.tf              #   backend + provider + module "cloud_run" (service_name hardcoded)
+    ├── variables.tf
+    ├── outputs.tf
+    ├── terraform.tfvars.example
+    └── modules/
+        └── cloud_run/       # VENDORED copy: Cloud Run + Artifact Registry + IAM + Scheduler
+```
+
+`ahun-duty-service/gcp/` is the same layout. The `cloud_run` module is vendored
+(copied) into each service repo — there are two copies to keep in sync by hand.
+
+### Two Terraform roots
+
+| Root | Lives in | Applied by | Owns | State prefix |
+|---|---|---|---|---|
+| shared root | this repo | you, once (and when shared config changes) | project APIs, Supabase projects, the shared Telegram bot secret + profile | `terraform/state` |
+| `<repo>/gcp/` | each service repo | that service's GitHub Actions pipeline, on every release | that one Cloud Run service, its Artifact Registry repo, service accounts, IAM, Cloud Scheduler jobs | `terraform/state/cloud-run/<service_name>` |
+
+Both roots share the same GCS backend bucket (`casa-ahun-tfstate`), different
+prefixes. The service root reads nothing from the shared state directly — its
+pipeline passes the shared outputs it needs (`spring_datasource_urls[...]`,
+`bot_token_secret`) as `TF_VAR_*` from GitHub Actions secrets.
 
 ---
 
@@ -116,70 +145,126 @@ the `module "telegram_bot"` block in `main.tf` to add or change entries.
 ```bash
 cp terraform.tfvars.example terraform.tfvars
 ```
-Fill in your GCP project ID, Supabase connection details, and Telegram credentials in the `terraform.tfvars` file.
+Fill in your GCP project ID, Supabase connection details and the shared Telegram
+bot token in the `terraform.tfvars` file. (Per-service app config — DB URL, chat
+id, Sheets credentials — belongs to each service repo's `gcp/` root, not here.)
 
-For the Google Cloud credentials, set it as an environment variable before running Terraform commands to keep your JSON key secure:
-```bash
-export TF_VAR_google_credentials=$(cat /path/to/your/credentials.json)
-```
+Terraform authenticates to GCP with Application Default Credentials
+(`gcloud auth application-default login`) or `GOOGLE_APPLICATION_CREDENTIALS`.
 
-### Step 2: Apply the infrastructure
+### Step 2: Apply the SHARED infrastructure (you, from the repo root)
 ```bash
 terraform init
 terraform apply
 ```
-Each Cloud Run service comes up on a public placeholder image
-(`us-docker.pkg.dev/cloudrun/container/hello`) and its Artifact Registry repo is
-created alongside it — no targeted apply or pre-build needed. Terraform owns the
-service's env vars, secret refs, scaling and scheduler; the `image` field is
-`ignore_changes`d so the pipeline can own it.
+This creates the project API enablement, the two Supabase projects and the
+shared Telegram bot (token in Secret Manager + `setMyCommands`). It does **not**
+create any Cloud Run service — that is each service repo's `gcp/` root, run by
+its pipeline. Apply this shared root **before** any service pipeline runs (the
+service roots assume the project APIs are already enabled).
 
-### Step 3: Let the CI/CD pipeline build and deploy the real image
-The service's GitHub Actions pipeline (`.github/workflows/deploy.yml`) builds the
-container, pushes it to the repo Terraform created, and runs `gcloud run deploy`
-to roll out the real revision:
-
-```
-us-central1-docker.pkg.dev/<project>/ahun-members-service/ahun-members-service:<version>
-```
-
-The repo id is the **service name** (`ahun-members-service`), so the pipeline's
-`ARTIFACT_REGISTRY_REPO` must be set to that (no `-repo` suffix). To build
-manually instead of via the pipeline:
+Grab the values the pipelines need:
 ```bash
-cd ~/Projects/Ahun/ahun-members-service
-gcloud builds submit --tag us-central1-docker.pkg.dev/your-gcp-project-id/ahun-members-service/ahun-members-service:latest .
+terraform output spring_datasource_urls   # -> per-service TF_VAR_spring_datasource_url
+terraform output -raw bot_token_secret    # -> TF_VAR_bot_token_secret_id (same for both)
+terraform output bot_link
 ```
 
-Re-running `terraform apply` later will not revert the pipeline-deployed image.
+### Step 2b: Create the per-service databases in Supabase (one-time)
+
+The `supabase` module names each project's JDBC database after the service
+(`ahun_members_service`, `ahun_duty_service`) via `databases[*].database_name`.
+Supabase only provisions a database called `postgres`, and the `supabase`
+provider has no resource to add another, so create them by hand once after the
+projects exist:
+
+```bash
+# connection ref is the id from: terraform state show 'module.supabase.supabase_project.db["members"]'
+psql "postgresql://postgres:<db-password>@db.<members-ref>.supabase.co:5432/postgres" \
+  -c 'CREATE DATABASE ahun_members_service;'
+psql "postgresql://postgres:<db-password>@db.<duty-ref>.supabase.co:5432/postgres" \
+  -c 'CREATE DATABASE ahun_duty_service;'
+```
+
+Caveats of a non-`postgres` database: reachable only on the **direct 5432**
+connection (not the 6543 pooler), and invisible to the Supabase REST API,
+dashboard editor and automated backups. Flyway/JPA work against it normally. To
+go back to the default, drop `database_name` from the `databases` block in
+`main.tf` (falls back to `postgres`).
+
+### Step 3: Per-service infra + deploy (the service's GitHub Actions pipeline)
+
+Each service repo carries its own `gcp/` Terraform root. Its
+`.github/workflows/deploy.yml` `deploy` job, in order:
+
+1. checks out **its own** repo (it already has `gcp/`);
+2. `cd gcp && terraform init` — backend bucket + prefix
+   (`terraform/state/cloud-run/<service_name>`) are hardcoded in `gcp/main.tf`;
+3. `terraform apply` — creates/updates the Cloud Run service, its Artifact
+   Registry repo, service accounts, IAM and scheduler jobs. Terraform
+   `ignore_changes` the container image;
+4. `gcloud run deploy <service_name> --image …:<version>` — rolls the real image.
+
+`service_name` and the scheduler-job map are hardcoded in each repo's
+`gcp/main.tf` (one repo = one service). Only secrets are injected by the pipeline
+as `TF_VAR_*`.
+
+**GitHub Actions secrets each service repo needs** (in the `GCP_SA_KEY` environment):
+
+| Secret | Value |
+|---|---|
+| `GCP_SA_KEY` (or `GOOGLE_CREDENTIALS` / `GCP_CREDENTIALS`) | deployer SA key JSON |
+| `GCP_PROJECT_ID` | e.g. `casa-ahun` |
+| `SPRING_DATASOURCE_URL` | this service's URL from `terraform output spring_datasource_urls` |
+| `SPRING_DATASOURCE_PASSWORD` | Supabase DB password |
+| `TELEGRAM_CHAT_ID` | target chat/group id |
+| `BOT_TOKEN_SECRET_ID` | `terraform output -raw bot_token_secret` (`ahun-telegram-bot-token`) |
+| `SHEETS_GOOGLE_CREDENTIALS` | (members only) service-account JSON for the Sheets sync, or leave unset |
+
+To run a service root by hand instead of via the pipeline:
+```bash
+cd ~/Projects/Ahun/ahun-members-service/gcp
+cp terraform.tfvars.example terraform.tfvars   # fill in
+terraform init
+terraform apply
+```
+
+Re-running either root later will not revert the pipeline-deployed image.
 
 ---
 
 ## Adding More Microservices
 
-To add another microservice, simply add another `module "cloud_run"` block in `main.tf`. Pass any environment variables it needs using the generic `env_vars` map, and define cron jobs using `scheduler_jobs`.
+1. **Shared root** (this repo) — add the service to the `module "supabase"`
+   `databases` map in `main.tf` (if it needs its own DB) and `terraform apply`.
+   Add any new slash commands to the `module "telegram_bot"` `commands` list.
+2. **Service repo** — copy `gcp/` from an existing service repo into the new one.
+   In `gcp/main.tf` set the hardcoded `service_name`, the backend `prefix`
+   (`terraform/state/cloud-run/<service-name>`), and the `scheduler_jobs` map:
+   ```hcl
+   module "cloud_run" {
+     source       = "./modules/cloud_run"
+     service_name = "billing-service"
+     # …
+     scheduler_jobs = {
+       "weekly-report" = {
+         description = "Generates weekly billing reports"
+         schedule    = "0 10 * * 1"
+         time_zone   = "America/Sao_Paulo"
+         uri_path    = "/api/reports/generate"
+         http_method = "POST"
+         body        = ""
+       }
+     }
+   }
+   ```
+3. **Pipeline** — copy a `deploy.yml` into the new service repo, set
+   `SERVICE_NAME` / `ARTIFACT_REGISTRY_REPO` to `billing-service`, and add the
+   GitHub Actions secrets from the table in Step 3.
 
-```hcl
-module "billing_service" {
-  source       = "./modules/cloud_run"
-  project_id   = var.project_id
-  region       = var.region
-  service_name = "billing-service"
+For an extra plaintext env var that is not one of the built-in ones, pass
+`TF_VAR_extra_env_vars='{"API_KEY":"..."}'` from the pipeline or set
+`extra_env_vars` in `gcp/terraform.tfvars`.
 
-  env_vars = {
-    DATABASE_URL = module.supabase.spring_datasource_urls["billing"]
-    API_KEY      = "secret"
-  }
-  
-  scheduler_jobs = {
-    "weekly-report" = {
-      description = "Generates weekly billing reports"
-      schedule    = "0 10 * * 1"
-      time_zone   = "America/Sao_Paulo"
-      uri_path    = "/api/reports/generate"
-      http_method = "POST"
-      body        = ""
-    }
-  }
-}
-```
+> When you change the vendored `cloud_run` module, apply the same edit to every
+> service repo's `gcp/modules/cloud_run/` — the copies are independent.

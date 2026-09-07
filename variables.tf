@@ -15,14 +15,7 @@ variable "zone" {
   default     = "us-central1-a"
 }
 
-variable "service_name" {
-  description = "Name of the Cloud Run service"
-  type        = string
-  default     = "ahun-members-service"
-}
-
 # --- Application Configuration Variables ---
-
 
 variable "spring_datasource_password" {
   description = "Supabase Database Password"
@@ -34,19 +27,6 @@ variable "telegram_bot_token" {
   description = "Telegram Bot Token for the shared Ahun bot (issued by @BotFather), used by both services"
   type        = string
   sensitive   = true
-}
-
-variable "telegram_chat_id" {
-  description = "Telegram Chat ID for notifications"
-  type        = string
-  sensitive   = true
-}
-
-variable "google_credentials" {
-  description = "Google Service Account JSON string for Sheets API (defaults to DEFAULT_GCP to use Cloud Run Application Default Credentials)"
-  type        = string
-  sensitive   = true
-  default     = "DEFAULT_GCP"
 }
 
 variable "supabase_access_token" {

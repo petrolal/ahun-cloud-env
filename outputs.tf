@@ -1,51 +1,13 @@
-output "members_cloud_run_url" {
-  description = "The URL of the deployed Ahun Members Cloud Run service"
-  value       = module.ahun_members_service.cloud_run_url
+# --- Supabase (consumed by each service pipeline as TF_VAR_spring_datasource_url) ---
+
+output "spring_datasource_urls" {
+  description = "Per-service JDBC URLs. Feed the matching one to that service's pipeline as TF_VAR_spring_datasource_url."
+  value       = module.supabase.spring_datasource_urls
 }
 
-output "members_registry_repository_url" {
-  description = "The Artifact Registry Docker Repository URL for Ahun Members"
-  value       = module.ahun_members_service.registry_repository_url
-}
-
-output "members_app_service_account_email" {
-  description = "The custom Service Account email assigned to the Ahun Members Cloud Run service"
-  value       = module.ahun_members_service.app_service_account_email
-}
-
-output "members_github_actions_service_account_email" {
-  description = "The Service Account email for GitHub Actions deployment for Ahun Members"
-  value       = module.ahun_members_service.github_actions_service_account_email
-}
-
-output "members_messaging_trigger_url" {
-  description = "The HTTP endpoint URL to trigger the daily/monthly messaging routine for Ahun Members"
-  value       = module.ahun_members_service.messaging_trigger_url
-}
-
-output "duty_cloud_run_url" {
-  description = "The URL of the deployed Ahun Duty Cloud Run service"
-  value       = module.ahun_duty_service.cloud_run_url
-}
-
-output "duty_registry_repository_url" {
-  description = "The Artifact Registry Docker Repository URL for Ahun Duty"
-  value       = module.ahun_duty_service.registry_repository_url
-}
-
-output "duty_app_service_account_email" {
-  description = "The custom Service Account email assigned to the Ahun Duty Cloud Run service"
-  value       = module.ahun_duty_service.app_service_account_email
-}
-
-output "duty_github_actions_service_account_email" {
-  description = "The Service Account email for GitHub Actions deployment for Ahun Duty"
-  value       = module.ahun_duty_service.github_actions_service_account_email
-}
-
-output "duty_messaging_trigger_url" {
-  description = "The HTTP endpoint URL to trigger the daily/monthly messaging routine for Ahun Duty"
-  value       = module.ahun_duty_service.messaging_trigger_url
+output "supabase_project_ids" {
+  description = "Per-service Supabase project ids"
+  value       = module.supabase.project_ids
 }
 
 # --- Telegram bot (shared by both services) ---
@@ -61,6 +23,18 @@ output "bot_link" {
 }
 
 output "bot_token_secret" {
-  description = "Secret Manager secret id holding the shared Ahun bot token"
+  description = "Secret Manager secret id holding the shared Ahun bot token. Feed to each service pipeline as TF_VAR_bot_token_secret_id."
   value       = module.telegram_bot.secret_id
+}
+
+# --- GitHub Actions OIDC (Workload Identity Federation) ---
+
+output "github_actions_wif_provider" {
+  description = "Workload Identity Pool Provider resource name. Set as the GitHub secret WIF_PROVIDER in every service repo."
+  value       = module.github_actions_oidc.provider_name
+}
+
+output "github_actions_sa_emails" {
+  description = "Per-service CI service account emails. In each service repo set the matching value as WIF_SERVICE_ACCOUNT and pass it to that root as TF_VAR_github_actions_sa_email."
+  value       = module.github_actions_oidc.service_account_emails
 }
